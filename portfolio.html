@@ -574,16 +574,16 @@
                 }
             }
         
-            /// <summary>
+            /// <<code>summary</code>>
             /// ルール設定ボタンに処理を付与する
-            /// </summary>
+            /// <<code>/summary</code>>
             public void ButtonActionSet()
             {
                 for (int i = 0; i < settingButtons.Length; i++)
                 {
                     int num = i;
                     settingButtons[i].enabled = false;
-                    eventTriggers[i] = settingButtons[i].GetComponent<EventTrigger>();
+                    eventTriggers[i] = settingButtons[i].GetComponent<<code>EventTrigger</code>>();
                     settingButtons[i].onClick.AddListener(() => GameMaster.Instance.GameStartButton((GameMaster.GameMode)num));
                     settingButtons[i].onClick.AddListener(() => Action());
                     var eve1 = new EventTrigger.Entry();
@@ -597,9 +597,9 @@
                 }
             }
         
-            /// <summary>
+            /// <<code>summary</code>>
             /// ルール設定ボタンを押したら実行される処理
-            /// </summary>
+            /// <<code>/summary</code>>
             private void Action()
             {
                 foreach(Button button in settingButtons)
@@ -616,9 +616,9 @@
                 CloseRuleText();
             }
         
-            /// <summary>
+            /// <<code>summary</code>>
             /// カードオブジェクトの移動が完了したらオブジェクトをもとの位置に戻して、非表示にする
-            /// </summary>
+            /// <<code>/summary</code>>
             private void ObjMoveEnd(bool objType)
             {
                 if (objType)
@@ -633,9 +633,9 @@
                 }
             }
         
-            /// <summary>
+            /// <<code>summary</code>>
             /// 全てのカードオブジェクトに移動が完了したら実行
-            /// </summary>
+            /// <<code>/summary</code>>
             private void AllObjMoveEnd()
             {
                 hintText.gameObject.SetActive(true);
@@ -645,9 +645,9 @@
                 }
             }
         
-            /// <summary>
+            /// <<code>summary</code>>
             /// タイトルオブジェクトの配置をリセットする
-            /// </summary>
+            /// <<code>/summary</code>>
             public void ReturnTitle()
             {
                 cardObjL.SetActive(true);
@@ -665,9 +665,9 @@
                 startText.gameObject.SetActive(true);
             }
         
-            /// <summary>
+            /// <<code>summary</code>>
             /// カードオブジェクトを左へ移動させる処理
-            /// </summary>
+            /// <<code>/summary</code>>
             public void CardObjMoveL()
             {
                 updateFlagL = false;
@@ -681,9 +681,9 @@
                 cardObjL.transform.DOLocalMove(new Vector3((Screen.width / 2 + 300) * -1, 0, 0), 1.5f).OnComplete(() => { ObjMoveEnd(true); });
             }
         
-            /// <summary>
+            /// <<code>summary</code>>
             /// カードオブジェクトを右へ移動させる処理
-            /// </summary>
+            /// <<code>/summary</code>>
             public void CardObjMoveR()
             {
                 updateFlagR = false;
@@ -697,32 +697,31 @@
                 cardObjR.transform.DOLocalMove(new Vector3(Screen.width / 2 + 300, 0, 0), 1.5f).OnComplete(() => { ObjMoveEnd(false); });
             }
         
-            /// <summary>
+            /// <<code>summary</code>>
             /// ゲームのルールを決めるときに表示するテキスト処理
-            /// </summary>
-            /// <param name="gameMode"></param>
+            /// <<code>/summary</code>>
             private void OutputRuleText(GameMaster.GameMode gameMode)
             {
                 switch (gameMode)
                 {
                     case GameMaster.GameMode.limit50:
-                        ruleText.text = "<color=red><size=60>50</size></color>ターン以内にクリアせよ";
+                        ruleText.text = "<<code>color=red</code>><<code>size=60</code>>50<<code>/size</code>><<code>/color</code>>ターン以内にクリアせよ";
                         break;
                     case GameMaster.GameMode.limit75:
-                        ruleText.text = "<color=red><size=60>75</size></color>ターン以内にクリアせよ";
+                        ruleText.text = "<<code>color=red</code>><<code>size=60</code>>75<<code>/size</code>><<code>/color</code>>ターン以内にクリアせよ";
                         break;
                     case GameMaster.GameMode.limit100:
-                        ruleText.text = "<color=red><size=60>100</size></color>ターン以内にクリアせよ";
+                        ruleText.text = "<<code>color=red</code>><<code>size=60</code>>100<<code>/size</code>><<code>/color</code>>ターン以内にクリアせよ";
                         break;
                     default:
-                        ruleText.text = "制限ターンなしの<color=yellow><size=60>タイムアタックモード</size></color>";
+                        ruleText.text = "制限ターンなしの<<code>color=yellow</code>><<code>size=60</code>>タイムアタックモード<<code>/size</code>><<code>/color</code>>";
                         break;
                 }
             }
         
-            /// <summary>
+            /// <<code>summary</code>>
             /// ボタンからカーソルが離れたら実行
-            /// </summary>
+            /// <<code>/summary</code>>
             private void CloseRuleText()
             {
                 ruleText.text = "";
