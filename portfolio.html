@@ -23,380 +23,1423 @@
         </tr>
         <tr>
             <th>趣味</th>
-            <td>映画鑑賞、小説・漫画</td>
+            <td>漫画、アニメ、ゲーム</td>
         </tr>
     </table>
-    <h3>成果物</h3>
+    <h3>作品紹介</h3>
     <table>
         <tr>
             <th>タイトル</th>
-            <td>３目並べ（個人製作）</td>
+            <td>しんけいすいじゃく（個人製作）</td>
         </tr>
         <tr>
-            <th>プログラム概要</th>
-            <td>３目並べ（〇×）を３Ｄで作成。リッチなゲーム感を出す。</td>
+            <th>概要</th>
+            <td>トランプゲームの神経衰弱を、カードの動きにアニメーションを加える等の工夫を少々加えて制作。</td>
         </tr>
         <tr>
             <th>制作期間</th>
-            <td>2019/05/25 ~ 2019/06/01 ６時間程度</td>
+            <td>2019年 5月～8月 90時間程度</td>
         </tr>
         <tr>
-            <th>使用言語・ソフト</th>
-            <td>Unity を使用し、Visual Studio Code を使い windows 上で記述・デバッグ。</td>
+            <th>開発環境</th>
+            <td>Unity、Visual Studio 2019、カードのアニメーションにDOTweenを使用。</td>
         </tr>
     </table>
     <h4>ソースコード</h4>
 
     <div onclick="obj=document.getElementById('menu1').style; obj.display=(obj.display=='none')?'block':'none';">
-        <a style="cursor:pointer;">▼ GameControl.csソースコード</a>
+        <a style="cursor:pointer;">▼ GameMaster.csソースコード</a>
     </div>
 
     <div id="menu1" style="display:none;clear:both;">
-        <div class="rollbox">
-            <pre>
-                <code>
-                    <font color="#ffffff">
-    using System.Collections;
-    using System.Collections.Generic;
-    using System.Linq;
-    using UnityEngine;
-    using UnityEngine.UI;
-    using UniRx;
-    
-    public class GameControl : MonoBehaviour
-    {
-        #region データフィールド
-    
-        enum WinnerType
-        {
-            Player1 = 0,
-            Player2,
-            Draw,
-            None
-        }
-    
-        //  パネルリスト
-        [SerializeField]
-        private List<PanlesView> panels = new List<PanlesView>();
-    
-        [SerializeField]
-        private Text clearText;
-        [SerializeField]
-        private Text pushText;
-    
-        //  入力スクリプト
-        private InputControl inputControl;
-    
-        //  ターン（true:プレイヤー１、false:プレイヤー２）
-        private bool isTokenTurn = true;
-    
-        //  勝利タイプ
-        private WinnerType winnerType = WinnerType.None;
-    
-        //  リセット待ちフラグ
-        private bool isReset = false;
-    
-        //  クリアチェックテーブル（この並びで同じマークになったら勝利）
-        private List<List<int>> CheckTableList = new List<List<int>>()
-        {
-            new List<int>(){0,1,2},
-            new List<int>(){3,4,5},
-            new List<int>(){6,7,8},
-            new List<int>(){0,3,6},
-            new List<int>(){1,4,7},
-            new List<int>(){2,5,8},
-            new List<int>(){0,4,8},
-            new List<int>(){2,4,6},
-        };
-    
-        // クリア用のメッセージ
-        string[] clearMsg =
-        {
-            "Player 1 Win!",
-            "Player 2 Win!",
-            "Draw !!!"
-        };
-    
-    
-        #endregion
-    
-    
-        #region 関数フィールド
-    
-        // Start is called before the first frame update
-        void Start()
-        {
-            //  入力コントローラの取得
-            inputControl = GetComponent<InputControl>();
-    
-            //  パネルに初期値を設定
-            Enumerable.Range(0, 9).ToList().ForEach(num => panels[num].Init(num));
-    
-            //  入力処理
-            Observable.EveryUpdate().Select(_ => inputControl.SelectPanelNumber)
-                .Where(pnum => pnum >= 0 && winnerType == WinnerType.None)
-                .Subscribe(pnum => CheckClearOrEnd(pnum)).AddTo(this);
-    
-            //  ゲーム終了時の処理
-            Observable.EveryUpdate().Where(_ => winnerType != WinnerType.None && !isReset)
-                .Subscribe(_ => DispClearText()).AddTo(this);
-    
-        }
-    
-        /// <summary>
-        /// ゲームのリセット処理
-        /// </summary>
-        private void ResetGame()
-        {
-            //  フラグの初期化
-            isReset = false;
-            isTokenTurn = true;
-            winnerType = WinnerType.None;
-            //  テキスト表示関連の非表示
-            clearText.gameObject.SetActive(false);
-            pushText.gameObject.SetActive(false);
-            //  パネル選択画像のクリア
-            panels.ForEach(x => x.ClearImage());
-        }
-    
-        /// <summary>
-        /// ゲームクリアテキストを表示
-        /// </summary>
-        private void DispClearText()
-        {
-            //  クリアメッセージテキストの表示
-            clearText.gameObject.SetActive(true);
-            pushText.gameObject.SetActive(true);
-            clearText.text = clearMsg[(int)winnerType];
-            isReset = true;
-            //  ゲームのリセット待ち
-            Observable.EveryUpdate().Where(_ => isReset && Input.GetMouseButtonDown(0))
-                .First()
-                .Subscribe(_ => ResetGame()).AddTo(this);
-        }
-    
-        /// <summary>
-        /// ゲーム終了あるいはクリアチェック
-        /// </summary>
-        private void CheckClearOrEnd(int selPanelNum)
-        {
-            //  配列を超える数が入ってきたらエラーなので何も処理しない
-            if (selPanelNum >= panels.Count)
-                return;
-            //  ターンによって表示するマテリアルを入れ替える
-            if (isTokenTurn)
-                panels[selPanelNum].SetImge(PanlesView.PutImageType.Maru);
-            else
-                panels[selPanelNum].SetImge(PanlesView.PutImageType.Batu);
-    
-            //  ターンの入れ替え
-            isTokenTurn = !isTokenTurn;
-    
-            //  クリアパターンを順番にチェック
-            CheckTableList.ForEach(x =>
+    <div class="rollbox">
+    <pre>
+    <code><font color="#ffffff">
+            using System.Collections;
+            using System.Collections.Generic;
+            using UnityEngine;
+            using UnityEngine.UI;
+            
+            public class GameMaster : MonoBehaviour
             {
-                //  pleyer1 win
-                if (x.All(num => panels[num].PImgeType == PanlesView.PutImageType.Maru))
-                    winnerType = WinnerType.Player1;
-                //  plyer2 win
-                else if (x.All(num => panels[num].PImgeType == PanlesView.PutImageType.Batu))
-                    winnerType = WinnerType.Player2;
-            });
-            //  勝利フラグが成立していれば処理を抜ける
-            if (winnerType != WinnerType.None)
-                return;
-            //  すべてが埋まっていてどちらも勝利していなければ終了
-            if(panels.All(x => x.PImgeType != PanlesView.PutImageType.None))
-                winnerType = WinnerType.Draw;
-        }
-    
-        #endregion
-    }
-                    </font>
-                </code>
-            </pre>
-        </div>
+                public static GameMaster Instance;
+            
+                private CardControl card;
+                public CardControl Card { get { return card; } }
+                private FadeControl fade;
+                private ResultControl result;
+                private TurnCounter turnCounter;
+                private TitleControl title;
+            
+                [SerializeField, Tooltip("獲得したカードを格納するオブジェクト")]
+                private GameObject getCardBoxMainObj;
+                private GameObject getCardBox;
+                private Button getCardBoxButton;
+                public GameObject GetCardBox { get { return getCardBox; } }
+                public bool GetCardButtonEnabled { set { getCardBoxButton.enabled = value; } get { return getCardBoxButton.enabled; } }
+            
+                private int gameTurn = 0;    // 経過ターン数
+                private int limitTurn = 0;    // 設定した制限ターン数
+                private int gamelimit = 0;    // ゲーム終了までのターン数
+                public int GameLimit { get { return gamelimit; } }
+                private bool limitGameMode = true;    // ゲームモードがターン制限ありどうか
+                public int GameTurn
+                {
+                    set
+                    {
+                        gameTurn = value;
+                        if (limitGameMode && gamelimit > 0)
+                        {
+                            gamelimit--;
+                        }
+                    }
+                    get
+                    {
+                        return gameTurn;
+                    }
+                }
+            
+                private int getCardCounter;    // 獲得したカードの枚数
+                public int GetCardCounter { set { getCardCounter = value; } get { return getCardCounter; } }
+                private bool isGameClear    // ゲームをクリアしたかの判定
+                {
+                    get
+                    {
+                        if(getCardCounter == 52)
+                        {
+                            return true;
+                        }
+                        else
+                        {
+                            return false;
+                        }
+                    }
+                }
+            
+                private float gameTime;    // 経過時間
+                public float GameTime { get { return gameTime; } }
+                private bool timeFlag = false;    //　時間計測を開始するフラグ
+                public bool TimeFlag { set { timeFlag = value; } }
+            
+                private bool fadeStartFlag = false;    // フェードを管理するフラグ
+                private bool firstGameFlag = true;    //　ゲームが初回かどうかをチェックするフラグ
+            
+                [SerializeField, Tooltip("メニューボタン")]
+                private Button menuButton;
+                [SerializeField, Tooltip("メニューボタンで表示されるオブジェクト")]
+                private GameObject menuObject;
+            
+                private void Awake()
+                {
+                    if(Instance == null)
+                    {
+                        Instance = this;
+                    }
+            
+                    // ゲーム初回起動時に取得する要素
+                    card = GetComponent<<code>CardControl</code>>();
+                    fade = GetComponent<<code>FadeControl</code>>();
+                    result = GetComponent<<code>ResultControl</code>>();
+                    turnCounter = GetComponent<<code>TurnCounter</code>>();
+                    getCardBox = getCardBoxMainObj.transform.GetChild(0).gameObject;
+                    getCardBoxButton = getCardBoxMainObj.transform.GetChild(1).GetComponent<<code>Button</code>>();
+                    title = GetComponent<<code>TitleControl</code>>();
+                }
+            
+                private void Start()
+                {
+                    // ゲーム初回起動時に実行する処理
+                    result.GameStart();
+                    card.GetCard.ResetGetCard();
+                    card.GetCard.GetCardListActive(false);
+                    turnCounter.CounterActive(false);
+                    getCardBoxButton.enabled = false;
+                    title.ButtonActionSet();
+                    MenuButtonActive(false);
+                    menuObject.SetActive(false);
+                }
+            
+                private void Update()
+                {
+                    // 残りターンをカウンターに反映
+                    turnCounter.LimitTurn = gamelimit;
+            
+                    // 残りターン数が0になる又は、すべてのカードを獲得したらリザルトを出力
+                    if((getCardCounter == 52 || gamelimit == 0) && fadeStartFlag)
+                    {
+                        // 時間計測停止
+                        timeFlag = false;
+            
+                        // 獲得カードリストは非表示にする
+                        getCardBoxButton.enabled = false;
+                        card.GetCard.ResetGetCard();
+                        card.GetCard.GetCardListActive(false);
+            
+                        // フェード処理と、リザルトの表示を実行
+                        fade.StartFade(GameOverAction);
+                        fadeStartFlag = false;
+                        result.OutputResult(isGameClear);
+                    }
+            
+                    // 時間を計測
+                    if (timeFlag)
+                    {
+                        gameTime += Time.deltaTime;
+                    }
+                }
+            
+                public void Quit()
+                {
+                    #if UNITY_EDITOR
+                        UnityEditor.EditorApplication.isPlaying = false;
+                    #elif UNITY_STANDALONE
+                        UnityEngine.Application.Quit();
+                    #endif
+                }
+            
+                /// <<code>summary</code>>
+                /// ゲームモード
+                /// <<code>/summary</code>>
+                public enum GameMode
+                {
+                    limit50,    // 50ターン以内にクリア
+                    limit75,    // 75ターン以内にクリア
+                    limit100,   // 100ターン以内にクリア
+                    limitInf    // 制限ターンなし
+                }
+            
+                /// <<code>summary</code>>
+                /// ゲーム開始ボタンの処理
+                /// <<code>/summary</code>>
+                /// <<code>param name="gameMode"</code>>ゲームモード<<code>/param</code>>
+                public void GameStartButton(GameMode gameMode)
+                {
+                    switch (gameMode)
+                    {
+                        case GameMode.limit50:
+                            limitTurn = 50;
+                            break;
+                        case GameMode.limit75:
+                            limitTurn = 75;
+                            break;
+                        default:
+                            limitTurn = 100;
+                            break;
+                    }
+            
+                    gamelimit = limitTurn;
+            
+                    if (gameMode == GameMode.limitInf)
+                    {
+                        limitGameMode = false;
+                        turnCounter.CounterActive(false);
+                    }
+                    else
+                    {
+                        limitGameMode = true;
+                        turnCounter.CounterActive(true);
+                    }
+            
+                    // カードを並べる処理の開始
+                    card.SetCard(firstGameFlag);
+                    fadeStartFlag = true;
+                    if (firstGameFlag)
+                    {
+                        firstGameFlag = false;
+                    }
+                }
+            
+                /// <<code>summary</code>>
+                /// ゲームを初期化してスタート
+                /// <<code>/summary</code>>
+                public void ResetGame()
+                {
+                    gameTurn = 0;
+                    gamelimit = limitTurn;
+                    getCardCounter = 0;
+                    gameTime = 0;
+                    card.SetCard(false);
+                    if (limitGameMode)
+                    {
+                        turnCounter.CounterActive(true);
+                    }
+                    result.GameStart();
+                    fadeStartFlag = true;
+                }
+            
+                /// <<code>summary</code>>
+                /// タイトルに戻るボタンの処理
+                /// <<code>/summary</code>>
+                public void ReturnTitle()
+                {
+                    gameTurn = 0;
+                    getCardCounter = 0;
+                    gameTime = 0;
+                    result.GameStart();
+                    title.ReturnTitle();
+                }
+            
+                /// <<code>summary</code>>
+                /// GameOverになったら実行する処理
+                /// <<code>/summary</code>>
+                private void GameOverAction()
+                {
+                    card.AllCardsActive(false);
+                    turnCounter.CounterActive(false);
+                    result.GameEnd();
+                }
+            
+                /// <<code>summary</code>>
+                /// メニューボタンを押したら呼び出される処理
+                /// <<code>/summary</code>>
+                public void OpenMenuButton()
+                {
+                    // タイマーを一時的に停止
+                    timeFlag = false;
+            
+                    // カードのクリックを一時的に無効
+                    card.CardClick(false);
+            
+                    //　メニューの表示
+                    menuObject.SetActive(true);
+            
+                    //　メニューボタンのクリックを無効
+                    menuButton.enabled = false;
+            
+                    // 獲得したカードリストを非表示
+                    getCardBoxButton.enabled = false;
+                    card.GetCard.GetCardListActive(false);
+                }
+            
+                /// <<code>summary</code>>
+                /// メニューのリスタートボタンの処理
+                /// <<code>/summary</code>>
+                public void RestartMenuButton()
+                {
+                    card.GetCard.ResetGetCard();
+                    ResetGame();
+                    MenuButtonActive(false);
+                    menuObject.SetActive(false);
+                }
+            
+                /// <<code>summary</code>>
+                /// メニューのタイトルに戻るボタンの処理
+                /// <<code>/summary</code>>
+                public void TitleMenuButton()
+                {
+                    gameTurn = 0;
+                    getCardCounter = 0;
+                    gameTime = 0;
+                    title.ReturnTitle();
+                    card.AllCardsActive(false);
+                    turnCounter.CounterActive(false);
+                    card.GetCard.ResetGetCard();
+                    MenuButtonActive(false);
+                    menuObject.SetActive(false);
+                }
+            
+                /// <<code>summary</code>>
+                /// メニューを閉じるボタンの処理
+                /// <<code>/summary</code>>
+                public void CloseMenuButton()
+                {
+                    // メニューを非表示
+                    menuObject.SetActive(false);
+            
+                    // カードのクリックを有効
+                    card.CardClick(true);
+            
+                    // タイマーの計測を再開
+                    timeFlag = true;
+            
+                    // メニューボタンのクリックを有効
+                    menuButton.enabled = true;
+            
+                    // 獲得したカードリストのボタンを有効
+                    if(getCardCounter > 0)
+                    {
+                        getCardBoxButton.enabled = true;
+                    }
+                }
+            
+                /// <<code>summary</code>>
+                /// メニューボタンのオンオフ
+                /// <<code>/summary</code>>
+                /// <param name="b">true=表示, false=非表示</param>
+                public void MenuButtonActive(bool b)
+                {
+                    menuButton.gameObject.SetActive(b);
+                    if (!menuButton.enabled)
+                    {
+                        menuButton.enabled = true;
+                    }
+                }
+            }
+            
+    </font></code>
+    </pre>
+    </div>
     </div>
 
 
     <div onclick="obj=document.getElementById('menu2').style; obj.display=(obj.display=='none')?'block':'none';">
-        <a style="cursor:pointer;">▼ InputControl.csソースコード</a>
+        <a style="cursor:pointer;">▼ FadeControl.csソースコード</a>
     </div>
-    <div id="menu2" style="display:none;clear:both;">
-            <div class="rollbox">
 
-        <pre>
-    <code>
-            using System.Collections;
-            using System.Collections.Generic;
-            using UnityEngine;
-            using UniRx;
-            
-            public class InputControl : MonoBehaviour
+    <div id="menu2" style="display:none;clear:both;">
+    <div class="rollbox">
+    <pre>
+    <code><font color="#ffffff">
+        using System.Collections;
+        using System.Collections.Generic;
+        using UnityEngine;
+        using UnityEngine.UI;
+        
+        public class FadeControl : MonoBehaviour
+        {
+            [SerializeField]
+            private float interval;    // 透明度が変わるスピードを管理
+            private float time;
+            private float red, green, blue, alpha;    // パネルの色、不透明度を管理
+        
+            [SerializeField]
+            private Image fadeImage;    // 透明度を変更するパネルのイメージ
+        
+            private bool isFading = false;
+            public bool IsFading { get { return isFading; } set { isFading = false; } }
+        
+            void Start()
             {
-                //  現在選択中のパネル番号を設定（選択ナシは-1でデフォルトとする）
-                private int selectPanelNumber = -1;
-                //  データを取得しに来たら選択中のパネル番号をクリアしておく
-                public int SelectPanelNumber {
-                    get {
-                        var num = selectPanelNumber;
-                        selectPanelNumber = -1;
-                        return num;
-                    }
-                }
-            
-                // Start is called before the first frame update
-                void Start()
-                {
-                    Observable.EveryUpdate().Where(_ => Input.GetMouseButtonDown(0))
-                        .Subscribe(_ =>
-                        {
-                            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-                            RaycastHit hit = new RaycastHit();
-            
-                            if (Physics.Raycast(ray, out hit))
-                            {
-                                var gObj = hit.collider.gameObject;
-                                if (gObj.name.Equals("Token"))
-                                {
-                                    var parent = gObj.GetComponentInParent<PanlesView>();
-                                    selectPanelNumber = parent.PanelNumber;
-                                }
-                            }
-                        })
-                        .AddTo(this);
-                }
+                red = fadeImage.color.r;
+                green = fadeImage.color.g;
+                blue = fadeImage.color.b;
+                alpha = fadeImage.color.a;
+                fadeImage.transform.SetAsLastSibling();
             }
-            
-    </code>
+        
+            void Update()
+            {
+                SetAlpha();
+            }
+        
+            public void StartFade(UnityEngine.Events.UnityAction fadingAction)
+            {
+                StartCoroutine(FadeAction(fadingAction));
+            }
+        
+            private IEnumerator FadeAction(UnityEngine.Events.UnityAction fadingAction)
+            {
+                // 画面を暗くする
+                isFading = true;
+                fadeImage.enabled = true;
+                time = 0;
+                while (time <= interval)
+                {
+                    alpha = Mathf.Lerp(0f, 1f, time / interval);
+                    time += Time.deltaTime;
+                    yield return 0;
+                }
+        
+                // 画面暗転中に実行する処理
+                fadingAction();
+        
+                // 画面を明るくする
+                time = 0;
+                while (time <= interval)
+                {
+                    alpha = Mathf.Lerp(1f, 0f, time / interval);
+                    time += Time.deltaTime;
+                    yield return 0;
+                }
+                fadeImage.enabled = false;
+                isFading = false;
+            }
+        
+            void SetAlpha()
+            {
+                fadeImage.color = new Color(red, green, blue, alpha);
+            }
+        }
+        
+                    
+    </font></code>
     </pre>
     </div>
     </div>
 
     <div onclick="obj=document.getElementById('menu3').style; obj.display=(obj.display=='none')?'block':'none';">
-        <a style="cursor:pointer;">▼ BlinkTextView.csソースコード</a>
+        <a style="cursor:pointer;">▼ TitleControl.csソースコード</a>
     </div>
+
     <div id="menu3" style="display:none;clear:both;">
-            <div class="rollbox">
-                    <pre>
-    <code>
-    using System.Collections;
-    using System.Collections.Generic;
-    using UnityEngine;
-    
-    public class BlinkTextView : MonoBehaviour
-    {
-        //  点滅時間
-        [SerializeField]
-        private float blinkTime = 1;
-    
-        //  表示状態
-        private bool isDisp = true;
-    
-        //  点滅管理用タイマー
-        private float timer = 0;
-    
-        // Update is called once per frame
-        void Update()
+    <div class="rollbox">
+    <pre>
+    <code><font color="#ffffff">
+        using System.Collections;
+        using System.Collections.Generic;
+        using UnityEngine;
+        using UnityEngine.UI;
+        using UnityEngine.EventSystems;
+        using DG.Tweening;
+        
+        public class TitleControl : MonoBehaviour
         {
-            //  タイマーを加算
-            timer += Time.deltaTime;
-            //  タイマーが点滅時間に達したら表示を変更する
-            if(timer > blinkTime)
+            private Vector3 buttonDownPosR, buttonUpPosR, buttonDownPosL, buttonUpPosL;    // マウスの座標
+        
+            [SerializeField, Tooltip("ターン制限を決めるボタン")]
+            private Button[] settingButtons = new Button[4];
+        
+            [SerializeField, Tooltip("タイトルに表示されるカードオブジェクト")]
+            private GameObject cardObjL, cardObjR;
+            private Vector3 objStartPosL, objStartPosR;    // オブジェクトのスタート時の座標
+        
+            private bool updateFlagL = true, updateFlagR = true;    // Updateの動作を管理するフラグ
+            private bool moveEndL = false, moveEndR = false;    // オブジェクトの移動の完了を検知するフラグ
+        
+            [SerializeField, Tooltip("タイトル文字のオブジェクト")]
+            private GameObject titleTextObj;
+            [SerializeField, Tooltip("ゲーム終了ボタン")]
+            private GameObject exitButtonObj;
+            [SerializeField, Tooltip("カードオブジェクトを移動させるボタン")]
+            private GameObject moveButtonObjL, moveButtonObjR;
+            [SerializeField, Tooltip("ガイドテキスト")]
+            private Text startText, ruleText, hintText;
+            private EventTrigger[] eventTriggers;    // ルール設定ボタン用のイベントトリガー
+        
+            private void Awake()
             {
-                //  タイマーをクリア
-                timer = 0;
-                //  現在表示中なら非表示にする（αを０に）
-                if (isDisp)
-                    GetComponent<CanvasGroup>().alpha = 0;
-                //  現在非表示中なら表示にする（αを１に）
+                // ゲーム実行したら初期化する要素
+                objStartPosL = cardObjL.transform.localPosition;
+                objStartPosR = cardObjR.transform.localPosition;
+                buttonDownPosL = new Vector3(Screen.width / 2, Screen.height / 2, 0);
+                buttonUpPosL = new Vector3(Screen.width / 2, Screen.height / 2, 0);
+                buttonDownPosR = new Vector3(Screen.width / 2, Screen.height / 2, 0);
+                buttonUpPosR = new Vector3(Screen.width / 2, Screen.height / 2, 0);
+                eventTriggers = new EventTrigger[settingButtons.Length];
+                ruleText.gameObject.SetActive(false);
+                hintText.gameObject.SetActive(false);
+                CloseRuleText();
+            }
+        
+            void Update()
+            {
+                if(Input.mousePosition.x > Screen.width / 2 && updateFlagR)
+                {
+                    if (Input.GetMouseButtonDown(0))
+                    {
+                        buttonDownPosR = Input.mousePosition;
+                    }
+                    if (Input.GetMouseButtonUp(0))
+                    {
+                        buttonUpPosR = Input.mousePosition;
+                        if(buttonUpPosR.x - buttonDownPosR.x > 700)
+                        {
+                            // 初期化
+                            buttonDownPosR = new Vector3(Screen.width / 2, Screen.height / 2, 0);
+                            buttonUpPosR = new Vector3(Screen.width / 2, Screen.height / 2, 0);
+        
+                            // 実行する処理
+                            CardObjMoveR();
+                        }
+                    }
+                }
+        
+                if(Input.mousePosition.x < Screen.width / 2 && updateFlagL)
+                {
+                    if (Input.GetMouseButtonDown(0))
+                    {
+                        buttonDownPosL = Input.mousePosition;
+                    }
+                    if (Input.GetMouseButtonUp(0))
+                    {
+                        buttonUpPosL = Input.mousePosition;
+                        if(buttonDownPosL.x - buttonUpPosL.x > 700)
+                        {
+                            // 初期化
+                            buttonDownPosL = new Vector3(Screen.width / 2, Screen.height / 2, 0);
+                            buttonUpPosL = new Vector3(Screen.width / 2, Screen.height / 2, 0);
+        
+                            // 処理
+                            CardObjMoveL();
+                        }
+                    }
+                }
+        
+                // オブジェクトの移動完了を検知したら実行
+                if(moveEndL && moveEndR)
+                {
+                    moveEndL = false;
+                    moveEndR = false;
+                    AllObjMoveEnd();
+                }
+            }
+        
+            /// <summary>
+            /// ルール設定ボタンに処理を付与する
+            /// </summary>
+            public void ButtonActionSet()
+            {
+                for (int i = 0; i < settingButtons.Length; i++)
+                {
+                    int num = i;
+                    settingButtons[i].enabled = false;
+                    eventTriggers[i] = settingButtons[i].GetComponent<EventTrigger>();
+                    settingButtons[i].onClick.AddListener(() => GameMaster.Instance.GameStartButton((GameMaster.GameMode)num));
+                    settingButtons[i].onClick.AddListener(() => Action());
+                    var eve1 = new EventTrigger.Entry();
+                    eve1.eventID = EventTriggerType.PointerEnter;
+                    eve1.callback.AddListener((data) => OutputRuleText((GameMaster.GameMode)num));
+                    var eve2 = new EventTrigger.Entry();
+                    eve2.eventID = EventTriggerType.PointerExit;
+                    eve2.callback.AddListener((data) => CloseRuleText());
+                    eventTriggers[i].triggers.Add(eve1);
+                    eventTriggers[i].triggers.Add(eve2);
+                }
+            }
+        
+            /// <summary>
+            /// ルール設定ボタンを押したら実行される処理
+            /// </summary>
+            private void Action()
+            {
+                foreach(Button button in settingButtons)
+                {
+                    button.gameObject.SetActive(false);
+                    button.enabled = false;
+                }
+        
+                // タイトルのオブジェクトを非表示
+                titleTextObj.SetActive(false);
+                exitButtonObj.SetActive(false);
+                ruleText.gameObject.SetActive(false);
+                hintText.gameObject.SetActive(false);
+                CloseRuleText();
+            }
+        
+            /// <summary>
+            /// カードオブジェクトの移動が完了したらオブジェクトをもとの位置に戻して、非表示にする
+            /// </summary>
+            private void ObjMoveEnd(bool objType)
+            {
+                if (objType)
+                {
+                    cardObjL.SetActive(false);
+                    cardObjL.transform.localPosition = objStartPosL;
+                }
                 else
-                    GetComponent<CanvasGroup>().alpha = 1;
-                //  状態フラグを反転させる
-                isDisp = !isDisp;
+                {
+                    cardObjR.SetActive(false);
+                    cardObjR.transform.localPosition = objStartPosR;
+                }
+            }
+        
+            /// <summary>
+            /// 全てのカードオブジェクトに移動が完了したら実行
+            /// </summary>
+            private void AllObjMoveEnd()
+            {
+                hintText.gameObject.SetActive(true);
+                foreach(Button button in settingButtons)
+                {
+                    button.enabled = true;
+                }
+            }
+        
+            /// <summary>
+            /// タイトルオブジェクトの配置をリセットする
+            /// </summary>
+            public void ReturnTitle()
+            {
+                cardObjL.SetActive(true);
+                cardObjR.SetActive(true);
+                titleTextObj.SetActive(true);
+                exitButtonObj.SetActive(true);
+                foreach(Button button in settingButtons)
+                {
+                    button.gameObject.SetActive(true);
+                }
+                updateFlagL = true;
+                updateFlagR = true;
+                moveButtonObjL.SetActive(true);
+                moveButtonObjR.SetActive(true);
+                startText.gameObject.SetActive(true);
+            }
+        
+            /// <summary>
+            /// カードオブジェクトを左へ移動させる処理
+            /// </summary>
+            public void CardObjMoveL()
+            {
+                updateFlagL = false;
+                moveButtonObjL.SetActive(false);
+                moveEndL = true;
+                if (moveEndR)
+                {
+                    startText.gameObject.SetActive(false);
+                    ruleText.gameObject.SetActive(true);
+                }
+                cardObjL.transform.DOLocalMove(new Vector3((Screen.width / 2 + 300) * -1, 0, 0), 1.5f).OnComplete(() => { ObjMoveEnd(true); });
+            }
+        
+            /// <summary>
+            /// カードオブジェクトを右へ移動させる処理
+            /// </summary>
+            public void CardObjMoveR()
+            {
+                updateFlagR = false;
+                moveButtonObjR.SetActive(false);
+                moveEndR = true;
+                if (moveEndL)
+                {
+                    startText.gameObject.SetActive(false);
+                    ruleText.gameObject.SetActive(true);
+                }
+                cardObjR.transform.DOLocalMove(new Vector3(Screen.width / 2 + 300, 0, 0), 1.5f).OnComplete(() => { ObjMoveEnd(false); });
+            }
+        
+            /// <summary>
+            /// ゲームのルールを決めるときに表示するテキスト処理
+            /// </summary>
+            /// <param name="gameMode"></param>
+            private void OutputRuleText(GameMaster.GameMode gameMode)
+            {
+                switch (gameMode)
+                {
+                    case GameMaster.GameMode.limit50:
+                        ruleText.text = "<color=red><size=60>50</size></color>ターン以内にクリアせよ";
+                        break;
+                    case GameMaster.GameMode.limit75:
+                        ruleText.text = "<color=red><size=60>75</size></color>ターン以内にクリアせよ";
+                        break;
+                    case GameMaster.GameMode.limit100:
+                        ruleText.text = "<color=red><size=60>100</size></color>ターン以内にクリアせよ";
+                        break;
+                    default:
+                        ruleText.text = "制限ターンなしの<color=yellow><size=60>タイムアタックモード</size></color>";
+                        break;
+                }
+            }
+        
+            /// <summary>
+            /// ボタンからカーソルが離れたら実行
+            /// </summary>
+            private void CloseRuleText()
+            {
+                ruleText.text = "";
             }
         }
-    }
-    </code>
+        
+                    
+    </font></code>
     </pre>
     </div>
     </div>
 
     <div onclick="obj=document.getElementById('menu4').style; obj.display=(obj.display=='none')?'block':'none';">
-        <a style="cursor:pointer;">▼ PanelsView.csソースコード</a>
+        <a style="cursor:pointer;">▼ ResultControl.csソースコード</a>
     </div>
+
     <div id="menu4" style="display:none;clear:both;">
-            <div class="rollbox">
-        <pre>
-    <code>
-    using System.Collections;
-    using System.Collections.Generic;
-    using UnityEngine;
+    <div class="rollbox">
+    <pre>
+    <code><font color="#ffffff">
+            using System.Collections;
+            using System.Collections.Generic;
+            using UnityEngine;
+            using UnityEngine.UI;
+            
+            public class ResultControl : MonoBehaviour
+            {
+                [SerializeField]
+                private GameObject thisGameObject;
+            
+                [SerializeField]
+                private Text resultMainText;
+                [SerializeField, Tooltip("経過ターンのテキスト")]
+                private Text turnText;
+                [SerializeField, Tooltip("経過時間のテキスト")]
+                private Text timerText;
+                [SerializeField, Tooltip("獲得カード枚数のテキスト")]
+                private Text cardText;
+            
+                // ゲーム終了時の経過ターンの情報
+                private int gameEndTurn;
+            
+                // ゲーム終了時の経過時間の情報
+                private int minute;
+                private int second;
+            
+                // ゲーム終了時の獲得したカードの枚数の情報
+                private int getCardCount;
+            
+                /// <<code>summary</code>>
+                /// リザルト情報の表示
+                /// <<code>/summary</code>>
+                /// <param name="isClear"></param>
+                public void OutputResult(bool isClear)
+                {
+                    // ゲーム終了時のデータを取得
+                    var gameData = GameMaster.Instance;
+                    gameEndTurn = gameData.GameTurn;
+                    minute = (int)gameData.GameTime / 60;
+                    second = (int)gameData.GameTime % 60;
+                    getCardCount = gameData.GetCardCounter;
+            
+                    // データをテキストに表示
+                    if (isClear)
+                    {
+                        resultMainText.text = "GAME CLEAR !!";
+                    }
+                    else
+                    {
+                        resultMainText.text = "GAME OVER";
+                    }
+                    turnText.text = gameEndTurn.ToString() + "ターン";
+                    timerText.text = minute.ToString() + "分 " + second.ToString("00") + "秒";
+                    cardText.text = getCardCount.ToString() + "まい";
+                }
+            
+                /// <<code>summary</code>>
+                /// ゲーム開始時に実行する処理
+                /// <<code>/summary</code>>
+                public void GameStart()
+                {
+                    thisGameObject.SetActive(false);
+                }
+                /// <<code>summary</code>>
+                /// ゲーム終了時に実行する処理
+                /// <<code>/summary</code>>
+                public void GameEnd()
+                {
+                    thisGameObject.SetActive(true);
+                }
+            }
+            
+    </font></code>
+    </pre>
+    </div>
+    </div>
+
+    <div onclick="obj=document.getElementById('menu5').style; obj.display=(obj.display=='none')?'block':'none';">
+        <a style="cursor:pointer;">▼ CardControl.csソースコード</a>
+    </div>
+
+    <div id="menu5" style="display:none;clear:both;">
+    <div class="rollbox">
+    <pre>
+    <code><font color="#ffffff">
+            using System.Collections;
+            using System.Collections.Generic;
+            using UnityEngine;
+            using UnityEngine.UI;
+            using System.Linq;
+            using DG.Tweening;
+            
+            public class CardControl : MonoBehaviour
+            {
+                // カードのImageデータ
+                [SerializeField]
+                private List<<code>Sprite</code>> spadeCards;
+                [SerializeField]
+                private List<<code>Sprite</code>> cloverCards;
+                [SerializeField]
+                private List<<code>Sprite</code>> heartCards;
+                [SerializeField]
+                private List<<code>Sprite</code>> diaCards;
+            
+                // カードオブジェクトの元データ
+                [SerializeField]
+                private Button cardObject;
+            
+                // カードオブジェクト
+                private Button[] allCardObjects = new Button[52];
+                private CardView[] allCardView = new CardView[52];
+                
+                // 盤面のカードを格納しておくオブジェクト
+                [SerializeField]
+                private GameObject allCards;
+            
+                // トランプのシャッフル用の配列
+                private int[] cards = new int[52];
+            
+                // カードの正誤判定
+                private bool cardCheckFlag = false;
+                private List<<code>int</code>> cardNumList = new List<<code>int</code>>();
+                private List<<code>int</code>> cardIdList = new List<<code>int</code>>();
+            
+                // 獲得したカード情報
+                [SerializeField]
+                private GetCardView getCard;
+                public GetCardView GetCard { get { return getCard; } }
+            
+                private int cardFirstMoveCount = 0;
+                private int cardSecondMoveCount = 0;
+                public int CardSecondMoveCount { set { cardSecondMoveCount = value; } get { return cardSecondMoveCount; } }
+                private int cardMoveCounter = 0;
+            
+                /// <<code>summary</code>>
+                /// カードを画面上に並べる処理
+                /// <<code>/summary</code>>
+                public void SetCard(bool isFirstGame)
+                {
+                    if (cardCheckFlag)
+                    {
+                        cardCheckFlag = false;
+                        cardNumList = new List<<code>int</code>>();
+                        cardIdList = new List<<code>int</code>>();
+                    }
+            
+                    // シャッフル用の配列の準備
+                    for(int i = 0; i < cards.Length; i++) cards[i] = i;
+            
+                    for (int i = 0; i < cards.Length; i++)
+                    {
+                        int tmp = cards[i];
+                        int index = Random.Range(0, cards.Length);
+                        cards[i] = cards[index];
+                        cards[index] = tmp;
+                    }
+            
+                    // 情報の割り当て
+                    for(int i = 0; i < allCardView.Length; i++)
+                    {
+                        // インスタンスの生成
+                        if(allCardObjects[i] == null)
+                        {
+                            allCardObjects[i] = Instantiate(cardObject);
+                        }
+                        if(allCardView[i] == null)
+                        {
+                            allCardView[i] = allCardObjects[i].GetComponent<<code>CardView</code>>();
+                        }
+            
+                        // インスタンスに情報を割り当てる
+                        var cardButton = allCardObjects[i];
+                        var cardView = allCardView[i];
+                        
+                        if (0 <= cards[i] && cards[i] < 13)
+                        {
+                            cardView.CardNumber = cards[i];
+                            cardView.CardMark = "スペード";
+                            cardView.CardSpriteData = spadeCards[cardView.CardNumber];
+                        }
+                        else if (13 <= cards[i] && cards[i] < 26)
+                        {
+                            cardView.CardNumber = cards[i] - 13;
+                            cardView.CardMark = "クローバー";
+                            cardView.CardSpriteData = cloverCards[cardView.CardNumber];
+                        }
+                        else if (26 <= cards[i] && cards[i] < 39)
+                        {
+                            cardView.CardNumber = cards[i] - 26;
+                            cardView.CardMark = "ハート";
+                            cardView.CardSpriteData = heartCards[cardView.CardNumber];
+                        }
+                        else
+                        {
+                            cardView.CardNumber = cards[i] - 39;
+                            cardView.CardMark = "ダイヤ";
+                            cardView.CardSpriteData = diaCards[cardView.CardNumber];
+                        }
+                    }
+            
+                    // カードを1つのオブジェクトに格納
+                    foreach (Button button in allCardObjects)
+                    {
+                        button.transform.SetParent(allCards.transform);
+                        button.transform.localPosition = new Vector3(0, -1 * Screen.height, 0);
+                    }
+            
+                    // 初回ゲーム時のみ実行
+                    if (isFirstGame)
+                    {
+                        int count = 0;
+                        var startPos = new Vector3(-845, 300, 0);
+                        for (int i = 0; i < 4; i++)
+                        {
+                            for (int j = 0; j < 13; j++)
+                            {
+                                var cardButton = allCardObjects[count];
+                                var cardView = allCardView[count];
+                                cardButton.transform.localScale = new Vector3(0.15f, 0.15f);
+                                cardView.CardSetPos = new Vector3(startPos.x + 140 * j, startPos.y - 200 * i, 0);
+            
+                                cardView.CardId = count;    // カードの固有ID
+                                cardButton.onClick.AddListener(() => cardView.TurnCard(true));    // カードをめくる処理の追加
+                                cardButton.onClick.AddListener(() => CheckCard(cardView.CardNumber, cardView.CardId));    // ペア判定処理の追加
+            
+                                count++;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        foreach (CardView view in allCardView)
+                        {
+                            view.ResetCard();
+                        }
+                        AllCardsActive(true);
+                    }
+            
+                    CardClick(false);
+            
+                    StartCoroutine(CardMove());
+                }
+            
+                private IEnumerator CardMove()
+                {
+                    int count = 0;
+                    cardMoveCounter = 0;
+            
+                    // カード並べる処理を4列分繰り返す
+                    while (count < 4)
+                    {
+                        var card = new CardView[13];
+                        cardFirstMoveCount = 0;
+                        cardSecondMoveCount = 0;
+            
+                        for (int i = 0; i < card.Length; i++)
+                        {
+                            card[i] = allCardView[cardMoveCounter];
+                            card[i].transform.DOLocalMove(new Vector3(-845, 300 - (200 * count), 0), 0.75f).OnComplete(() => { cardFirstMoveCount++; });
+                            cardMoveCounter++;
+                        }
+            
+                        while (cardFirstMoveCount < 13)
+                        {
+                            yield return new WaitForEndOfFrame();
+                        }
+            
+                        foreach (CardView view in card)
+                        {
+                            view.SetCardPosition();
+                        }
+            
+                        while(cardSecondMoveCount < 13)
+                        {
+                            yield return new WaitForEndOfFrame();
+                        }
+                        
+                        count++;
+                    }
+            
+                    // カードのクリックを許可
+                    CardClick(true);
+            
+                    GameMaster.Instance.TimeFlag = true;
+                    GameMaster.Instance.MenuButtonActive(true);
+                }
+            
+                /// <<code>summary</code>>
+                /// カードの正誤判定の処理
+                /// <<code>/summary</code>>
+                private void CheckCard(int cardNum, int cardId)
+                {
+                    cardNumList.Add(cardNum);
+                    cardIdList.Add(cardId);
+            
+                    if (!cardCheckFlag)
+                    {
+                        allCardObjects[cardId].enabled = false;
+                        cardCheckFlag = true;
+                        return;
+                    }
+            
+                    // カードのクリックを無効にする
+                    CardClick(false);
+            
+                    // メニューボタンを一時的に非表示にする
+                    GameMaster.Instance.MenuButtonActive(false);
+            
+                    if (cardNumList.Distinct().Count() == 1)
+                    {
+                        // ペアだった場合
+                        StartCoroutine(DirectionToCard(1.0f, true));
+                    }
+                    else
+                    {
+                        // ペアでなかった場合
+                        StartCoroutine(DirectionToCard(1.0f, false));
+                    }
+                }
+            
+                /// <<code>summary</code>>
+                /// めくったカードに指示を出す処理
+                /// <<code>/summary</code>>
+                /// <<code>param name="time"</code>>実行開始時間(秒)<<code>/param</code>>
+                /// <<code>param name="flag"</code>>true=消える、false=裏返す<<code>/param</code>>
+                IEnumerator DirectionToCard(float time, bool flag)
+                {
+                    yield return new WaitForSeconds(time);
+            
+                    int moveEndCounter = 0;
+            
+                    for(int i = 0; i < cardIdList.Count; i++)
+                    {
+                        var card = allCardObjects[cardIdList[i]];
+                        var cardView = allCardView[cardIdList[i]];
+            
+                        if (flag)
+                        {
+                            card.transform.SetParent(GameMaster.Instance.GetCardBox.transform);
+                            card.transform.DOLocalMove(new Vector3(0, 0, 0), 0.75f).OnComplete(() => { moveEndCounter++; });
+                            getCard.OutputGetCard(cardView.CardSpriteData);
+                            if (!GameMaster.Instance.GetCardButtonEnabled)
+                            {
+                                GameMaster.Instance.GetCardButtonEnabled = true;
+                            }
+                            GameMaster.Instance.GetCardCounter++;
+                        }
+                        else
+                        {
+                            cardView.TurnCard(false);    // カードを裏返す
+                            moveEndCounter++;
+                        }
+                    }
+            
+                    while((allCardView[cardIdList[0]].IsCardTurning && allCardView[cardIdList[1]].IsCardTurning) || moveEndCounter != cardIdList.Count)
+                    {
+                        yield return new WaitForEndOfFrame();
+                    }
+            
+                    cardIdList.Clear();
+                    cardNumList.Clear();
+                    cardCheckFlag = false;
+            
+                    // ゲームのターン数を加算
+                    GameMaster.Instance.GameTurn++;
+            
+                    // 全てのカードを取得したならこの処理を終了する
+                    if (GameMaster.Instance.GetCardCounter >= 52 || GameMaster.Instance.GameLimit <= 0)
+                    {
+                        yield break;
+                    }
+            
+                    // カードのクリックを有効にする
+                    CardClick(true);
+                    GameMaster.Instance.MenuButtonActive(true);
+                }
+            
+                /// <<code>summary</code>>
+                /// 盤面のカードの表示、非表示を管理する
+                /// <<code>/summary</code>>
+                /// <<code>param name="b"</code>>true=表示, false=非表示<<code>/param</code>>
+                public void AllCardsActive(bool b)
+                {
+                    foreach(Button button in allCardObjects)
+                    {
+                        button.gameObject.SetActive(b);
+                    }
+                }
+            
+                /// <<code>summary</code>>
+                /// カードのクリックのオンオフ
+                /// <<code>/summary</code>>
+                /// <<code>param name="b"</code>>true=ON, false=OFF<<code>/param</code>>
+                public void CardClick(bool b)
+                {
+                    foreach(Button button in allCardObjects)
+                    {
+                        button.enabled = b;
+                    }
+                }
+            }
+            
+    </font></code>
+    </pre>
+    </div>
+    </div>
+
+    <div onclick="obj=document.getElementById('menu6').style; obj.display=(obj.display=='none')?'block':'none';">
+        <a style="cursor:pointer;">▼ CardData.csソースコード</a>
+    </div>
+
+    <div id="menu6" style="display:none;clear:both;">
+    <div class="rollbox">
+    <pre>
+    <code><font color="#ffffff">
+            using System.Collections;
+            using System.Collections.Generic;
+            using UnityEngine;
+            
+            public class CardData : MonoBehaviour
+            {
+                [SerializeField]
+                private int cardId;                // カードのID番号
+                public int CardId { set { cardId = value; } get { return cardId; } }
+            
+                [SerializeField]
+                private int cardNumber;            // カードに描かれた数字の情報
+                public int CardNumber { set { cardNumber = value; } get { return cardNumber; } }
+            
+                [SerializeField]
+                private string cardMark;           // カードに描かれたマークの情報
+                public string CardMark { set { cardMark = value; } get { return cardMark; } }
+            
+                private Sprite cardSpriteData;     // 表示するカードのスプライト画像データ
+                public Sprite CardSpriteData { set { cardSpriteData = value; } get { return cardSpriteData; } }
+            
+            }
+            
+    </font></code>
+    </pre>
+    </div>
+    </div>
+
+    <div onclick="obj=document.getElementById('menu7').style; obj.display=(obj.display=='none')?'block':'none';">
+        <a style="cursor:pointer;">▼ CardView.csソースコード</a>
+    </div>
+
+    <div id="menu7" style="display:none;clear:both;">
+    <div class="rollbox">
+    <pre>
+    <code><font color="#ffffff">
+            using System.Collections;
+            using System.Collections.Generic;
+            using UnityEngine;
+            using UnityEngine.UI;
+            using DG.Tweening;
+            
+            public class CardView : CardData
+            {
+                [SerializeField]
+                private Image cardImage;
+                private bool isCardTurning;
+                public bool IsCardTurning { set { isCardTurning = value; } get { return isCardTurning; } }
+                [SerializeField]
+                private Vector3 cardSetPos;
+                public Vector3 CardSetPos { set { cardSetPos = value; } }
+            
+            
+                private void Update()
+                {
+                    if(CardSpriteData != null && cardImage.sprite != CardSpriteData)
+                    {
+                        cardImage.sprite = CardSpriteData;
+                    }
+                }
+            
+                /// <<code>summary</code>>
+                /// カードを返す処理
+                /// <<code>/summary</code>>
+                /// <<code>param name="b"</code>>true=数字の面を表示, false=裏に戻す<<code>/param</code>>
+                public void TurnCard(bool b)
+                {
+                    StartCoroutine(CardAction(b));
+                }
+            
+                private IEnumerator CardAction(bool turnMode)
+                {
+                    isCardTurning = true;
+                    float angle = 0f;
+                    float speed = 500f;
+                    bool flag = true;
+            
+                    if (turnMode)
+                    {
+                        // カードをめくる処理
+                        while(angle < 180)
+                        {
+                            angle += speed * Time.deltaTime;
+                            transform.eulerAngles = new Vector3(0, angle, 0);
+                            if(angle >= 90 && flag)
+                            {
+                                NumberSprite(turnMode);
+                                flag = false;
+                            }
+                            yield return null;
+                        }
+                        transform.eulerAngles = new Vector3(0, 180, 0);
+                    }
+                    else
+                    {
+                        angle = 180f;
+                        // めくったカードを戻す処理
+                        while (angle > 0)
+                        {
+                            angle -= speed * Time.deltaTime;
+                            transform.eulerAngles = new Vector3(0, angle, 0);
+                            if (angle <= 90 && flag)
+                            {
+                                NumberSprite(turnMode);
+                                flag = false;
+                            }
+                            yield return null;
+                        }
+                        transform.eulerAngles = new Vector3(0, 0, 0);
+                    }
+                    isCardTurning = false;
+                }
+            
+                /// <<code>summary</code>>
+                /// カードの数字イラストのオンオフ
+                /// <<code>/summary</code>>
+                /// <<code>param name="mode"</code>>true=ON, false=OFF<<code>/param</code>>
+                private void NumberSprite(bool mode)
+                {
+                    if (mode)
+                    {
+                        cardImage.color = new Color(cardImage.color.r, cardImage.color.g, cardImage.color.b, 1);
+                    }
+                    else
+                    {
+                        cardImage.color = new Color(cardImage.color.r, cardImage.color.g, cardImage.color.b, 0);
+                    }
+                }
+            
+                /// <<code>summary</code>>
+                /// カードを指定の位置に移動させる
+                /// <<code>/summary</code>>
+                public void SetCardPosition()
+                {
+                    if(transform.localPosition != cardSetPos)
+                    {
+                        transform.DOLocalMove(cardSetPos, 0.75f).OnComplete(() => { GameMaster.Instance.Card.CardSecondMoveCount++; });
+                    }
+                    else
+                    {
+                        GameMaster.Instance.Card.CardSecondMoveCount++;
+                    }
+                }
+            
+                /// <<code>summary</code>>
+                /// カードの表示をゲーム開始時の状態にする
+                /// <<code>/summary</code>>
+                public void ResetCard()
+                {
+                    transform.eulerAngles = new Vector3(0, 0, 0);
+                    NumberSprite(false);
+                    gameObject.SetActive(true);
+                }
+            }
+                   
+    </font></code>
+    </pre>
+    </div>
+    </div>
+
+    <div onclick="obj=document.getElementById('menu8').style; obj.display=(obj.display=='none')?'block':'none';">
+        <a style="cursor:pointer;">▼ GetCardView.csソースコード</a>
+    </div>
+
+    <div id="menu8" style="display:none;clear:both;">
+    <div class="rollbox">
+    <pre>
+    <code><font color="#ffffff">
+            using System.Collections;
+            using System.Collections.Generic;
+            using UnityEngine;
+            using UnityEngine.UI;
+            
+            public class GetCardView : MonoBehaviour
+            {
+                [SerializeField]
+                private List<<code>Image</code>> getCards;
+                private int cardCounter = 0;
+            
+                /// <<code>summary</code>>
+                /// 獲得カードリストのカードを非表示にする
+                /// <<code>/summary</code>>
+                public void ResetGetCard()
+                {
+                    cardCounter = 0;
+            
+                    foreach(Image image in getCards)
+                    {
+                        image.color = new Color(image.color.r, image.color.g, image.color.b, 0);
+                    }
+                }
+            
+                /// <<code>summary</code>>
+                /// 獲得したカードをリストに表示する
+                /// <<code>/summary</code>>
+                /// <<code>param name="sprite"</code>>表示するカードのSprite<<code>/param</code>>
+                public void OutputGetCard(Sprite spriteData)
+                {
+                    var card = getCards[cardCounter];
+                    card.sprite = spriteData;
+                    card.color = new Color(card.color.r, card.color.g, card.color.b, 1);
+                    cardCounter++;
+                }
+            
+                /// <<code>summary</code>>
+                /// 獲得したカードリストのオンオフ
+                /// <<code>/summary</code>>
+                /// <<code>param name="b"</code>>true=表示, false=非表示<<code>/param</code>>
+                public void GetCardListActive(bool b)
+                {
+                    gameObject.SetActive(b);
+                }
+            }
+            
+    </font></code>
+    </pre>
+    </div>
+    </div>
+
+    <div onclick="obj=document.getElementById('menu9').style; obj.display=(obj.display=='none')?'block':'none';">
+        <a style="cursor:pointer;">▼ TurnCounter.csソースコード</a>
+    </div>
     
-    public class PanlesView : MonoBehaviour
-    {
-        //  パネルの番号を保持
-        private int panelNumber = 0;
-        //  パネルの番号を取得
-        public int PanelNumber { get { return panelNumber; } }
-    
-        //  マテリアルタイプ
-        public enum PutImageType
-        {
-            None = 0,
-            Maru,
-            Batu
-        }
-    
-        //  〇、×、何も表示しないの3種類のマテリアルを登録する
-        [SerializeField]
-        private List<Material> imageMaterials = new List<Material>();
-    
-        //  〇、×を表示するオブジェクトのメッシュレンダラー
-        [SerializeField]
-        private MeshRenderer childPanel;
-    
-        //  何も表示しない状態をデフォルトにする
-        private PutImageType putImageType = PutImageType.None;
-        public PutImageType PImgeType { get { return putImageType; } }
-    
-        //  パネルの番号を登録する
-        public void Init(int num)
-        {
-            panelNumber = num;
-        }
-    
-        /// <summary>
-        /// パネルに表示するイメージタイプを設定
-        /// </summary>
-        /// <param name="imageType">表示イメージタイプ</param>
-        public void SetImge(PutImageType imageType)
-        {
-            //  すでに設定したところには再設定できない
-            if (putImageType != PutImageType.None)
-                return;
-            putImageType = imageType;
-            //  メッシュレンダラーのマテリアルに選択したマテリアルを張り付ける
-            childPanel.material = imageMaterials[(int)putImageType];
-        }
-    
-        /// <summary>
-        /// パネルの画像をクリアする
-        /// </summary>
-        public void ClearImage()
-        {
-            putImageType = PutImageType.None;
-            //  メッシュレンダラーのマテリアルに選択したマテリアルを張り付ける
-            childPanel.material = imageMaterials[(int)putImageType];
-        }
-    }
-    </code>
+    <div id="menu9" style="display:none;clear:both;">
+    <div class="rollbox">
+    <pre>
+    <code><font color="#ffffff">
+            using System.Collections;
+            using System.Collections.Generic;
+            using UnityEngine;
+            using UnityEngine.UI;
+            
+            public class TurnCounter : MonoBehaviour
+            {
+                private int limitTurn;    // ゲーム終了までのターン数
+                public int LimitTurn { set { limitTurn = value; } }
+            
+                [SerializeField, Tooltip("ゲーム終了までのターン数を表示するTextオブジェクト")]
+                private Text text;
+            
+                // Update is called once per frame
+                void Update()
+                {
+                    if(limitTurn > 10)
+                    {
+                        text.text = "ゲーム終了まであと <<code>size=75</code>>" + limitTurn.ToString() + "<<code>/size</code>> ターンです";
+                    }
+                    else if(limitTurn > 3)
+                    {
+                        text.text = "ゲーム終了まであと <<code>size=75</code>><<code>color=yellow</code>>" + limitTurn.ToString() + "<<code>/color</code>><<code>/size</code>> ターンです";
+                    }
+                    else
+                    {
+                        text.text = "ゲーム終了まであと <<code>size=100</code>><<code>color=red</code>>" + limitTurn.ToString() + "<<code>/color</code>><<code>/size</code>> ターンです";
+                    }
+                }
+            
+                /// <<code>summary</code>>
+                /// カウンターの表示、非表示の管理
+                /// <<code>/summary</code>>
+                /// <<code>param name="b"</code>>true=表示, false=非表示<<code>/param</code>>
+                public void CounterActive(bool b)
+                {
+                    text.gameObject.SetActive(b);
+                }
+            }
+            
+    </font></code>
     </pre>
     </div>
     </div>
 
 
+
     <h3>自分のスキルについて</h3>
+    <table>
+        <tr>
+            <th>扱えるソフト</th>
+            <td><ruby>Unity、 Visual Studio、 UnrealEngine4 など...</ruby></td>
+        </tr>
+    </table>
+
     <h4></h4>
 
 
