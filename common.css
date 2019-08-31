@@ -227,7 +227,7 @@ table{
     position: relative;
     text-align: left;
     width: 30%;
-    background-color: #52c2d0;
+    background-color: #f5b25a;
     color: white;
     text-align: center;
     padding: 10px 0;
@@ -241,7 +241,7 @@ table{
     position: absolute;
     top:calc(50% - 10px);
     right:-10px;
-    border-left: 10px solid #52c2d0;
+    border-left: 10px solid #f5b25a;
     border-top: 10px solid transparent;
     border-bottom: 10px solid transparent;
   }
@@ -261,4 +261,82 @@ div.rollbox {
   background-color: black;
   overflow: scroll;
   margin-left: 20px;
+}
+
+/* デザインお試し */
+h5 {
+  position: relative;
+  padding: 1.0em;
+  background: -webkit-repeating-linear-gradient(-45deg, #fff5df, #fff5df 4px,#ffe4b1 3px, #ffe4b1 8px);
+  background: repeating-linear-gradient(-45deg, #fff5df, #fff5df 4px,#ffe4b1 3px, #ffe4b1 8px);
+  border-radius: 7px;
+}
+
+h5:after {
+  position: absolute;
+  content: '';
+  top: 100%;
+  left: 30px;
+  border: 15px solid transparent;
+  border-top: 15px solid #ffebbe;
+  width: 0;
+  height: 0;
+}
+
+.box11{
+  padding: 0.5em 1em;
+  margin: 2em 0;
+  color: #f46100;
+  background: white;
+  border-top: solid 5px #ffb85c;
+  box-shadow: 0 3px 5px rgba(0, 0, 0, 0.22);
+}
+.box11 p {
+  margin: 0; 
+  padding: 0;
+}
+
+h6 {
+  position: relative;
+}
+
+h6:after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -5px;
+  width: 100%;
+  height: 7px;
+  background: -webkit-repeating-linear-gradient(-45deg, #fc7b24, #fc7b24 2px, #fff 2px, #fff 4px);
+  background: repeating-linear-gradient(-45deg, #fc7b24, #fc7b24 2px, #fff 2px, #fff 4px);
+}
+
+
+.ribbon4 {
+  display: inline-block;
+  position: relative;
+  height: 60px;/*高さ*/
+  line-height: 60px;/*高さ*/
+  text-align: center;
+  padding: 0 40px 0 18px;/*文字の左右の余白*/
+  font-size: 18px;/*文字サイズ*/
+  background: #ffc668;/*背景色*/
+  color: #FFF;/*文字色*/
+  box-sizing: border-box;
+}
+
+.ribbon4:after {
+  position: absolute;
+  content: '';
+  width: 0px;
+  height: 0px;
+  z-index: 1;
+}
+
+.ribbon4:after {
+  top: 0;
+  right: 0;
+  border-width: 30px 15px 30px 0px;
+  border-color: transparent #fff transparent transparent;
+  border-style: solid;
 }
